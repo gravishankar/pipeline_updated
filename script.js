@@ -4,14 +4,21 @@ class HabbitZVocabulary {
         this.studentProgress = {
             level: 1,
             experience: 0,
-            streak: 0,
+            streak: 1,
             totalWords: 0,
             accuracy: 100,
             wordsToday: 0,
             dailyGoal: 10,
             unlockedLevels: [1], // Levels the student has access to
             masteredWords: [], // Words the student has mastered
-            currentWordIndex: 0 // Current position in the word list
+            currentWordIndex: 0, // Current position in the word list
+            levelProgress: {
+                1: { mastered: 0, total: 20 },
+                2: { mastered: 0, total: 20 },
+                3: { mastered: 0, total: 20 },
+                4: { mastered: 0, total: 20 },
+                5: { mastered: 0, total: 20 }
+            }
         };
         
         this.currentActivity = null;
@@ -66,9 +73,25 @@ class HabbitZVocabulary {
     }
 
     init() {
+        this.updateLevelProgress();
         this.render();
         this.setupEventListeners();
         this.checkLevelUnlocks();
+    }
+
+    updateLevelProgress() {
+        // Update progress counts for each level
+        for (let level = 1; level <= 5; level++) {
+            const levelWords = WORDS_DATABASE[level].words;
+            const masteredCount = this.studentProgress.masteredWords.filter(word => 
+                levelWords.some(w => w.word === word)
+            ).length;
+            
+            this.studentProgress.levelProgress[level] = {
+                mastered: masteredCount,
+                total: levelWords.length
+            };
+        }
     }
 
     getTodaysWord() {
@@ -80,27 +103,23 @@ class HabbitZVocabulary {
     }
 
     checkLevelUnlocks() {
-        const currentLevelWords = WORDS_DATABASE[this.studentProgress.level].words;
-        const masteredInLevel = this.studentProgress.masteredWords.filter(word => 
-            currentLevelWords.some(w => w.word === word)
-        ).length;
+        const currentLevelProgress = this.studentProgress.levelProgress[this.studentProgress.level];
+        const masteryThreshold = Math.ceil(currentLevelProgress.total * 0.8);
         
-        // Unlock next level when 80% of current level is mastered
-        const masteryThreshold = Math.ceil(currentLevelWords.length * 0.8);
-        if (masteredInLevel >= masteryThreshold && this.studentProgress.level < 5) {
+        if (currentLevelProgress.mastered >= masteryThreshold && this.studentProgress.level < 5) {
             const nextLevel = this.studentProgress.level + 1;
             if (!this.studentProgress.unlockedLevels.includes(nextLevel)) {
                 this.studentProgress.unlockedLevels.push(nextLevel);
+                this.studentProgress.level = nextLevel; // Auto advance to next level
                 this.showLevelUpCelebration(nextLevel);
             }
         }
     }
 
     showLevelUpCelebration(newLevel) {
-        // Create celebration animation
         this.createCelebrationEffect();
         setTimeout(() => {
-            alert(`🎉🎉🎉 AMAZING! You unlocked Level ${newLevel}: ${WORDS_DATABASE[newLevel].name}! 🎉🎉🎉`);
+            alert(`🎉🎉🎉 AMAZING! You leveled up to Level ${newLevel}: ${WORDS_DATABASE[newLevel].name}! 🎉🎉🎉`);
         }, 500);
     }
 
@@ -124,62 +143,77 @@ class HabbitZVocabulary {
 
     initWordBuilderState() {
         const currentLevel = WORDS_DATABASE[this.selectedLevel];
-        const availableWords = currentLevel.words.filter(w => w.word.includes('-') || w.word.length > 6);
-        const randomWord = availableWords[Math.floor(Math.random() * availableWords.length)] || currentLevel.words[0];
+        const randomWord = currentLevel.words[Math.floor(Math.random() * currentLevel.words.length)];
         
         return {
             currentWord: {
-                root: this.extractRoot(randomWord.word),
-                meaning: "to examine/look",
                 target: randomWord.word,
-                prefix: this.extractPrefix(randomWord.word),
-                suffix: this.extractSuffix(randomWord.word),
-                definition: randomWord.definition
+                definition: randomWord.definition,
+                example: randomWord.example,
+                hint: this.generateHint(randomWord.word)
             },
             playerAnswer: '',
             feedback: '',
             score: 0,
-            wordsCompleted: 0
+            wordsCompleted: 0,
+            showHint: false
         };
     }
 
     initContextDetectiveState() {
         const currentLevel = WORDS_DATABASE[this.selectedLevel];
         const word = currentLevel.words[Math.floor(Math.random() * currentLevel.words.length)];
+        const correctAnswer = word.word;
+        const options = [correctAnswer];
+        
+        // Add 3 wrong options
+        while (options.length < 4) {
+            const randomWord = currentLevel.words[Math.floor(Math.random() * currentLevel.words.length)];
+            if (!options.includes(randomWord.word)) {
+                options.push(randomWord.word);
+            }
+        }
+        
+        // Shuffle options
+        for (let i = options.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [options[i], options[j]] = [options[j], options[i]];
+        }
         
         return {
             currentCase: {
                 sentence: this.generateContextSentence(word),
-                word: word.word,
-                options: this.generateContextOptions(word),
-                correct: 0,
-                explanation: word.definition
+                word: correctAnswer,
+                options: options,
+                correct: options.indexOf(correctAnswer),
+                explanation: word.definition,
+                example: word.example
             },
             selectedAnswer: null,
             showExplanation: false,
-            casesSolved: 0
+            casesSolved: 0,
+            showHint: false
         };
     }
 
     initSynonymShowdownState() {
-        const battles = SYNONYM_BATTLES.filter(battle => {
-            const currentLevel = WORDS_DATABASE[this.selectedLevel];
-            return currentLevel.words.some(w => w.word === battle.targetWord);
-        });
-        
-        const randomBattle = battles.length > 0 ? battles[Math.floor(Math.random() * battles.length)] : SYNONYM_BATTLES[0];
+        const currentLevel = WORDS_DATABASE[this.selectedLevel];
+        const word = currentLevel.words[Math.floor(Math.random() * currentLevel.words.length)];
         
         return {
             currentBattle: {
-                ...randomBattle,
-                timeLeft: 45,
+                targetWord: word.word,
+                definition: word.definition,
+                synonyms: word.synonyms.slice(0, 3), // Take first 3 synonyms
+                decoys: this.generateDecoys(word, currentLevel.words, 3),
                 round: 1,
                 maxRounds: 5
             },
             selectedWords: [],
             score: 0,
             gameActive: true,
-            feedback: ''
+            feedback: '',
+            showHint: false
         };
     }
 
@@ -190,62 +224,51 @@ class HabbitZVocabulary {
             currentJourney: randomJourney,
             discoveredWords: [],
             explorationPoints: 0,
-            currentStage: 'root'
+            showHint: false
         };
     }
 
-    extractRoot(word) {
-        // Simple root extraction logic
-        const commonRoots = ['spect', 'dict', 'struct', 'port', 'form'];
-        for (let root of commonRoots) {
-            if (word.includes(root)) return root;
+    generateHint(word) {
+        const len = word.length;
+        if (len <= 3) return word[0] + '_'.repeat(len - 1);
+        if (len <= 6) return word[0] + '_'.repeat(len - 2) + word[len - 1];
+        const visibleCount = Math.ceil(len * 0.4);
+        let hint = '';
+        for (let i = 0; i < len; i++) {
+            if (i === 0 || i === len - 1 || i % 2 === 0 && hint.replace(/_/g, '').length < visibleCount) {
+                hint += word[i];
+            } else {
+                hint += '_';
+            }
         }
-        return word.substring(0, Math.min(4, word.length));
-    }
-
-    extractPrefix(word) {
-        const commonPrefixes = ['pre-', 'un-', 're-', 'dis-', 'mis-', 'over-', 'under-'];
-        for (let prefix of commonPrefixes) {
-            if (word.startsWith(prefix.replace('-', ''))) return prefix;
-        }
-        return word.length > 6 ? word.substring(0, 2) + '-' : '';
-    }
-
-    extractSuffix(word) {
-        const commonSuffixes = ['-ing', '-ed', '-er', '-est', '-ly', '-tion', '-sion'];
-        for (let suffix of commonSuffixes) {
-            if (word.endsWith(suffix.replace('-', ''))) return suffix;
-        }
-        return word.length > 6 ? '-' + word.substring(word.length - 2) : '';
+        return hint;
     }
 
     generateContextSentence(word) {
         const templates = [
-            `The student's answer was so _____ that the teacher was impressed.`,
-            `Scientists need to _____ the data carefully before drawing conclusions.`,
-            `The _____ evidence supported the theory perfectly.`,
-            `Her explanation was _____ and easy to understand.`
+            `The student's work was very _____ and impressed everyone.`,
+            `Scientists need to _____ the data before drawing conclusions.`,
+            `The _____ results supported their hypothesis.`,
+            `Her explanation was _____ and easy to understand.`,
+            `The teacher asked us to _____ the main points.`,
+            `This _____ information will help us solve the problem.`
         ];
-        return templates[Math.floor(Math.random() * templates.length)].replace('_____', '_____');
+        return templates[Math.floor(Math.random() * templates.length)];
     }
 
-    generateContextOptions(word) {
-        const options = [word.word];
-        const currentLevel = WORDS_DATABASE[this.selectedLevel];
-        const otherWords = currentLevel.words.filter(w => w.word !== word.word);
+    generateDecoys(targetWord, allWords, count) {
+        const decoys = [];
+        const filteredWords = allWords.filter(w => 
+            w.word !== targetWord.word && 
+            !targetWord.synonyms.includes(w.word)
+        );
         
-        while (options.length < 4 && otherWords.length > 0) {
-            const randomWord = otherWords.splice(Math.floor(Math.random() * otherWords.length), 1)[0];
-            options.push(randomWord.word);
+        while (decoys.length < count && filteredWords.length > 0) {
+            const randomIndex = Math.floor(Math.random() * filteredWords.length);
+            decoys.push(filteredWords.splice(randomIndex, 1)[0].word);
         }
         
-        // Shuffle options
-        for (let i = options.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [options[i], options[j]] = [options[j], options[i]];
-        }
-        
-        return options;
+        return decoys;
     }
 
     render() {
@@ -255,9 +278,6 @@ class HabbitZVocabulary {
         switch (this.currentView) {
             case 'dashboard':
                 content = this.renderDashboard();
-                break;
-            case 'level-select':
-                content = this.renderLevelSelector();
                 break;
             case 'word-builder':
                 content = this.renderWordBuilder();
@@ -283,8 +303,14 @@ class HabbitZVocabulary {
         const currentLevel = WORDS_DATABASE[this.studentProgress.level];
         const selectedLevelData = WORDS_DATABASE[this.selectedLevel];
         const nextLevel = WORDS_DATABASE[this.studentProgress.level + 1];
+        const currentLevelProgress = this.studentProgress.levelProgress[this.studentProgress.level];
+        const selectedLevelProgress = this.studentProgress.levelProgress[this.selectedLevel];
         const progressPercent = nextLevel ? 
             (this.studentProgress.experience / nextLevel.xpRequired) * 100 : 100;
+
+        // Calculate mastery threshold
+        const masteryThreshold = Math.ceil(currentLevelProgress.total * 0.8);
+        const wordsNeeded = Math.max(0, masteryThreshold - currentLevelProgress.mastered);
 
         return `
             <div class="min-h-screen p-4">
@@ -316,18 +342,17 @@ class HabbitZVocabulary {
                                 </div>
                             </div>
                             
-                            ${nextLevel ? `
-                                <div class="mb-4">
-                                    <div class="flex justify-between text-sm text-white mb-2">
-                                        <span>🎯 Next Level: ${nextLevel.name}</span>
-                                        <span>${nextLevel.xpRequired - this.studentProgress.experience} XP to go!</span>
-                                    </div>
-                                    <div class="w-full bg-white bg-opacity-20 rounded-full h-4">
-                                        <div class="bg-gradient-to-r from-yellow-400 to-orange-500 h-4 rounded-full progress-bar" 
-                                             style="width: ${Math.max(5, progressPercent)}%"></div>
-                                    </div>
+                            <!-- Level Progress -->
+                            <div class="mb-4">
+                                <div class="flex justify-between text-sm text-white mb-2">
+                                    <span>🎯 Progress: ${currentLevelProgress.mastered}/${currentLevelProgress.total} words mastered</span>
+                                    <span>${wordsNeeded} words to next level!</span>
                                 </div>
-                            ` : ''}
+                                <div class="w-full bg-white bg-opacity-20 rounded-full h-4">
+                                    <div class="bg-gradient-to-r from-yellow-400 to-orange-500 h-4 rounded-full progress-bar" 
+                                         style="width: ${Math.max(5, (currentLevelProgress.mastered / masteryThreshold) * 100)}%"></div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Level Selector -->
@@ -338,6 +363,7 @@ class HabbitZVocabulary {
                             <div class="grid grid-cols-3 gap-3">
                                 ${Object.keys(WORDS_DATABASE).map(level => {
                                     const levelData = WORDS_DATABASE[level];
+                                    const levelProgress = this.studentProgress.levelProgress[level];
                                     const isUnlocked = this.studentProgress.unlockedLevels.includes(parseInt(level));
                                     const isSelected = this.selectedLevel == level;
                                     
@@ -356,12 +382,14 @@ class HabbitZVocabulary {
                                             <div class="text-2xl mb-1">${isUnlocked ? '🌟' : '🔒'}</div>
                                             <div class="text-sm font-semibold">Level ${level}</div>
                                             <div class="text-xs">${levelData.name}</div>
+                                            ${isUnlocked ? `<div class="text-xs mt-1">${levelProgress.mastered}/${levelProgress.total}</div>` : ''}
                                         </button>
                                     `;
                                 }).join('')}
                             </div>
                             <div class="text-center mt-4 text-white text-sm">
                                 Currently practicing: <span class="font-bold text-yellow-300">Level ${this.selectedLevel} - ${selectedLevelData.name}</span>
+                                <br>Progress: ${selectedLevelProgress.mastered}/${selectedLevelProgress.total} words mastered
                             </div>
                         </div>
                     </div>
@@ -449,7 +477,7 @@ class HabbitZVocabulary {
                     <!-- Current Level Words Preview -->
                     <div class="glass-card p-6">
                         <h3 class="text-xl font-semibold text-white mb-4 flex items-center fun-font">
-                            📖 Level ${this.selectedLevel} Word Collection (${selectedLevelData.words.length} words)
+                            📖 Level ${this.selectedLevel} Word Collection (${selectedLevelProgress.mastered}/${selectedLevelProgress.total} mastered)
                         </h3>
                         <div class="flex flex-wrap gap-2 mb-4">
                             ${selectedLevelData.words.slice(0, 15).map(word => {
@@ -486,7 +514,6 @@ class HabbitZVocabulary {
     }
 
     practiceWordOfDay() {
-        // Start with a random activity featuring the word of the day
         const activities = ['word-builder', 'context-detective'];
         const randomActivity = activities[Math.floor(Math.random() * activities.length)];
         this.startActivity(randomActivity);
@@ -496,7 +523,6 @@ class HabbitZVocabulary {
         this.currentActivity = activityId;
         this.currentView = activityId;
         
-        // Re-initialize the activity with current level
         switch(activityId) {
             case 'word-builder':
                 this.wordBuilderState = this.initWordBuilderState();
@@ -520,9 +546,9 @@ class HabbitZVocabulary {
         this.render();
     }
 
-    // Activity rendering methods will be added next...
+    // Word Builder Activity
     renderWordBuilder() {
-        const { currentWord, playerAnswer, feedback, wordsCompleted } = this.wordBuilderState;
+        const { currentWord, playerAnswer, feedback, wordsCompleted, showHint } = this.wordBuilderState;
         
         return `
             <div class="min-h-screen p-4">
@@ -530,50 +556,59 @@ class HabbitZVocabulary {
                     <!-- Header -->
                     <div class="glass-card p-6 mb-6 text-center">
                         <h3 class="text-3xl font-bold text-white mb-2 fun-font">🧩 Word Builder Quest!</h3>
-                        <p class="text-white opacity-90">Build magical words from their parts!</p>
+                        <p class="text-white opacity-90">Build magical words from clues!</p>
                         <div class="text-yellow-300 font-semibold mt-2">Words Built: ${wordsCompleted} 🏆</div>
                     </div>
 
-                    <!-- Word Building Area -->
+                    <!-- Word Challenge -->
                     <div class="glass-card p-6 mb-6">
                         <div class="text-center">
-                            <div class="text-lg font-semibold text-white mb-4">🔮 Magic Word Parts:</div>
-                            <div class="flex justify-center gap-4 mb-6">
-                                ${currentWord.prefix ? `<div class="word-part px-6 py-3 bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-xl font-mono text-lg">${currentWord.prefix}</div>` : ''}
-                                <div class="word-part px-6 py-3 bg-gradient-to-r from-purple-400 to-purple-600 text-white rounded-xl font-mono text-lg font-bold">${currentWord.root}</div>
-                                ${currentWord.suffix ? `<div class="word-part px-6 py-3 bg-gradient-to-r from-green-400 to-green-600 text-white rounded-xl font-mono text-lg">${currentWord.suffix}</div>` : ''}
-                            </div>
-                            <div class="text-white text-sm opacity-75">
-                                ✨ Root meaning: "${currentWord.meaning}"
+                            <div class="text-lg font-semibold text-white mb-4">🎯 Target Word:</div>
+                            <div class="text-2xl font-bold text-yellow-300 mb-4">"${currentWord.definition}"</div>
+                            
+                            ${showHint ? `
+                                <div class="bg-yellow-100 p-4 rounded-lg mb-4">
+                                    <div class="text-yellow-800 font-semibold mb-2">💡 Spelling Hint:</div>
+                                    <div class="text-2xl font-mono font-bold text-yellow-900">${currentWord.hint}</div>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="text-sm text-white opacity-75 mb-4">
+                                Example: "${currentWord.example}"
                             </div>
                         </div>
                     </div>
 
                     <!-- Answer Input -->
                     <div class="glass-card p-6 mb-6">
-                        <label class="block text-lg font-medium text-white mb-4 text-center">
-                            🎯 Build the word that means: "<span class="text-yellow-300">${currentWord.definition}</span>"
-                        </label>
                         <input
                             type="text"
                             id="wordBuilderInput"
                             value="${playerAnswer}"
                             class="w-full p-4 border-2 border-purple-300 rounded-xl text-xl font-mono text-center bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-                            placeholder="Type your magical word here..."
+                            placeholder="Type the word here..."
                         />
                     </div>
 
                     <!-- Action Buttons -->
-                    <div class="flex gap-4 mb-6">
+                    <div class="grid grid-cols-2 gap-4 mb-6">
                         <button
                             onclick="app.checkWordBuilderAnswer()"
-                            class="flex-1 button-fun text-white py-4 rounded-xl font-semibold text-lg"
+                            class="button-fun text-white py-4 rounded-xl font-semibold text-lg col-span-2"
                         >
-                            ✨ Cast Spell!
+                            ✨ Check Answer!
                         </button>
+                        
+                        <button
+                            onclick="app.toggleWordBuilderHint()"
+                            class="px-4 py-3 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 font-semibold"
+                        >
+                            💡 ${showHint ? 'Hide' : 'Show'} Hint
+                        </button>
+                        
                         <button
                             onclick="app.nextWordBuilderWord()"
-                            class="px-6 py-4 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30"
+                            class="px-4 py-3 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30"
                         >
                             ⏭️ Next Word
                         </button>
@@ -601,13 +636,341 @@ class HabbitZVocabulary {
         `;
     }
 
+    // Context Detective Activity
+    renderContextDetective() {
+        const { currentCase, selectedAnswer, showExplanation, casesSolved, showHint } = this.contextDetectiveState;
+        
+        return `
+            <div class="min-h-screen p-4">
+                <div class="max-w-2xl mx-auto">
+                    <!-- Header -->
+                    <div class="glass-card p-6 mb-6 text-center">
+                        <h3 class="text-3xl font-bold text-white mb-2 fun-font">🔍 Detective Academy!</h3>
+                        <p class="text-white opacity-90">Solve word mysteries with context clues!</p>
+                        <div class="text-yellow-300 font-semibold mt-2">Cases Solved: ${casesSolved} 🏆</div>
+                    </div>
+
+                    <!-- Mystery Case -->
+                    <div class="glass-card p-6 mb-6">
+                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg mb-4">
+                            <h4 class="text-lg font-semibold text-yellow-800 mb-2">🕵️ Mystery Case:</h4>
+                            <div class="text-lg text-gray-800">
+                                ${currentCase.sentence.replace('_____', 
+                                    selectedAnswer !== null 
+                                        ? `<span class="font-bold text-blue-600">${currentCase.options[selectedAnswer]}</span>`
+                                        : '<span class="font-bold text-red-500">_____</span>'
+                                )}
+                            </div>
+                        </div>
+                        
+                        ${showHint ? `
+                            <div class="bg-blue-100 p-4 rounded-lg mb-4">
+                                <div class="text-blue-800 font-semibold mb-2">💡 Detective Hint:</div>
+                                <div class="text-blue-700">The word means: "${currentCase.explanation}"</div>
+                                <div class="text-sm text-blue-600 mt-2">Example: "${currentCase.example}"</div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Options -->
+                    <div class="grid grid-cols-2 gap-3 mb-6">
+                        ${currentCase.options.map((option, index) => {
+                            let buttonClass = 'p-4 rounded-lg border-2 text-lg font-medium transition-all ';
+                            
+                            if (selectedAnswer === null) {
+                                buttonClass += 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 cursor-pointer bg-white';
+                            } else {
+                                if (selectedAnswer === index) {
+                                    if (index === currentCase.correct) {
+                                        buttonClass += 'border-green-500 bg-green-100 text-green-800';
+                                    } else {
+                                        buttonClass += 'border-red-500 bg-red-100 text-red-800';
+                                    }
+                                } else if (index === currentCase.correct) {
+                                    buttonClass += 'border-green-500 bg-green-100 text-green-800';
+                                } else {
+                                    buttonClass += 'border-gray-200 bg-gray-50 text-gray-500';
+                                }
+                            }
+
+                            return `
+                                <button
+                                    onclick="${selectedAnswer === null ? `app.selectDetectiveAnswer(${index})` : ''}"
+                                    ${selectedAnswer !== null ? 'disabled' : ''}
+                                    class="${buttonClass}"
+                                >
+                                    ${option}
+                                </button>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex gap-4 mb-6">
+                        <button
+                            onclick="app.toggleDetectiveHint()"
+                            class="px-6 py-3 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 font-semibold"
+                        >
+                            💡 ${showHint ? 'Hide' : 'Get'} Hint
+                        </button>
+                        
+                        <button
+                            onclick="app.nextDetectiveCase()"
+                            class="px-6 py-3 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 flex-1"
+                        >
+                            ⏭️ Next Case
+                        </button>
+                    </div>
+
+                    ${showExplanation ? `
+                        <div class="glass-card p-4 mb-6">
+                            <div class="text-center text-white">
+                                <div class="text-xl font-bold mb-2">
+                                    ${selectedAnswer === currentCase.correct ? '🎉 Case Solved!' : '🔍 Keep Investigating!'}
+                                </div>
+                                <div class="text-lg">${currentCase.explanation}</div>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Back Button -->
+                    <div class="text-center">
+                        <button
+                            onclick="app.goToDashboard()"
+                            class="text-white hover:text-yellow-300 font-medium text-lg"
+                        >
+                            🏠 Back to Base
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Synonym Showdown Activity
+    renderSynonymShowdown() {
+        const { currentBattle, selectedWords, score, feedback, showHint } = this.synonymShowdownState;
+        const allWords = [...currentBattle.synonyms, ...currentBattle.decoys].sort(() => Math.random() - 0.5);
+        
+        return `
+            <div class="min-h-screen p-4">
+                <div class="max-w-2xl mx-auto">
+                    <!-- Header -->
+                    <div class="glass-card p-6 mb-6 text-center">
+                        <h3 class="text-3xl font-bold text-white mb-2 fun-font">⚔️ Word Warriors!</h3>
+                        <p class="text-white opacity-90">Battle with synonyms and word power!</p>
+                        <div class="text-yellow-300 font-semibold mt-2">Battle Score: ${score} 🏆</div>
+                    </div>
+
+                    <!-- Battle Arena -->
+                    <div class="glass-card p-6 mb-6">
+                        <div class="bg-red-50 border-2 border-red-200 p-6 rounded-lg text-center">
+                            <h4 class="text-2xl font-bold text-red-800 mb-2">🎯 TARGET WORD</h4>
+                            <div class="text-3xl font-bold text-red-900 mb-2">${currentBattle.targetWord}</div>
+                            <div class="text-lg text-red-700">${currentBattle.definition}</div>
+                        </div>
+                        
+                        ${showHint ? `
+                            <div class="bg-green-100 p-4 rounded-lg mt-4">
+                                <div class="text-green-800 font-semibold mb-2">⚔️ Battle Hint:</div>
+                                <div class="text-green-700">Synonyms are: ${currentBattle.synonyms.join(', ')}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Word Selection -->
+                    <div class="mb-6">
+                        <h5 class="text-lg font-semibold text-white mb-3 text-center">🗡️ Select ALL the synonyms:</h5>
+                        <div class="grid grid-cols-2 gap-3">
+                            ${allWords.map(word => {
+                                const isSelected = selectedWords.includes(word);
+                                const isSynonym = currentBattle.synonyms.includes(word);
+                                let buttonClass = 'p-4 rounded-lg border-2 text-lg font-medium transition-all ';
+                                
+                                if (isSelected) {
+                                    buttonClass += 'border-blue-500 bg-blue-100 text-blue-800 cursor-pointer';
+                                } else {
+                                    buttonClass += 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 cursor-pointer bg-white';
+                                }
+
+                                return `
+                                    <button
+                                        onclick="app.toggleSynonymSelection('${word}')"
+                                        class="${buttonClass}"
+                                    >
+                                        ${isSelected ? '✓ ' : ''}${word}
+                                    </button>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <button
+                            onclick="app.submitSynonymBattle()"
+                            class="button-fun text-white py-4 rounded-xl font-semibold text-lg col-span-2"
+                        >
+                            ⚔️ ATTACK!
+                        </button>
+                        
+                        <button
+                            onclick="app.toggleSynonymHint()"
+                            class="px-4 py-3 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 font-semibold"
+                        >
+                            💡 ${showHint ? 'Hide' : 'Battle'} Hint
+                        </button>
+                        
+                        <button
+                            onclick="app.nextSynonymBattle()"
+                            class="px-4 py-3 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30"
+                        >
+                            ⏭️ Next Battle
+                        </button>
+                    </div>
+
+                    ${feedback ? `
+                        <div class="glass-card p-4 mb-6">
+                            <div class="text-center text-white text-lg">
+                                ${feedback}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Back Button -->
+                    <div class="text-center">
+                        <button
+                            onclick="app.goToDashboard()"
+                            class="text-white hover:text-yellow-300 font-medium text-lg"
+                        >
+                            🏠 Back to Base
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Etymology Explorer Activity
+    renderEtymologyExplorer() {
+        const { currentJourney, discoveredWords, explorationPoints, showHint } = this.etymologyExplorerState;
+        
+        return `
+            <div class="min-h-screen p-4">
+                <div class="max-w-2xl mx-auto">
+                    <!-- Header -->
+                    <div class="glass-card p-6 mb-6 text-center">
+                        <h3 class="text-3xl font-bold text-white mb-2 fun-font">🗺️ Word Treasure Hunt!</h3>
+                        <p class="text-white opacity-90">Discover amazing word families and their secrets!</p>
+                        <div class="text-yellow-300 font-semibold mt-2">Treasure Points: ${explorationPoints} 🏆</div>
+                    </div>
+
+                    <!-- Current Word Journey -->
+                    <div class="glass-card p-6 mb-6">
+                        <div class="bg-purple-50 p-6 rounded-lg text-center">
+                            <h4 class="text-2xl font-bold text-purple-800 mb-2">🔍 Current Treasure</h4>
+                            <div class="text-3xl font-bold text-purple-900 mb-2">${currentJourney.word}</div>
+                            <div class="text-lg text-purple-700 italic">${currentJourney.definition}</div>
+                        </div>
+                    </div>
+
+                    <!-- Etymology Breakdown -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="glass-card p-4">
+                            <h5 class="font-semibold text-blue-200 mb-2">📚 Root Word</h5>
+                            <div class="text-xl font-bold text-white">${currentJourney.root}</div>
+                            <div class="text-sm text-blue-200">Meaning: "${currentJourney.rootMeaning}"</div>
+                            <div class="text-xs text-blue-300 mt-1">Origin: ${currentJourney.origin}</div>
+                        </div>
+                        
+                        <div class="glass-card p-4">
+                            <h5 class="font-semibold text-green-200 mb-2">🔧 Suffix</h5>
+                            <div class="text-xl font-bold text-white">${currentJourney.suffix}</div>
+                            <div class="text-sm text-green-200">Meaning: "${currentJourney.suffixMeaning}"</div>
+                        </div>
+                    </div>
+
+                    ${showHint ? `
+                        <div class="glass-card p-4 mb-6">
+                            <div class="text-center">
+                                <div class="text-yellow-300 font-semibold mb-2">🗝️ Treasure Map Hint:</div>
+                                <div class="text-white">Look for words that contain "${currentJourney.root}" or are related to "${currentJourney.rootMeaning}"</div>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Word Family Challenge -->
+                    <div class="glass-card p-6 mb-6">
+                        <h5 class="text-lg font-semibold text-white mb-3 text-center">🌳 Find the Word Family Treasures!</h5>
+                        <div class="grid grid-cols-2 gap-2">
+                            ${currentJourney.wordFamily.map(word => {
+                                const isDiscovered = discoveredWords.includes(word);
+                                return `
+                                    <button
+                                        onclick="app.discoverFamilyWord('${word}')"
+                                        class="p-3 rounded-lg border-2 transition-all ${
+                                            isDiscovered 
+                                                ? 'border-green-400 bg-green-100 text-green-800 font-semibold' 
+                                                : 'border-purple-300 hover:border-purple-500 hover:bg-purple-50 bg-white'
+                                        }"
+                                        ${isDiscovered ? 'disabled' : ''}
+                                    >
+                                        ${isDiscovered ? '🏆 ' : '🎁 '}${word}
+                                    </button>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Progress and Actions -->
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <button
+                            onclick="app.toggleEtymologyHint()"
+                            class="px-4 py-3 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 font-semibold"
+                        >
+                            🗝️ ${showHint ? 'Hide' : 'Show'} Map
+                        </button>
+                        
+                        <button
+                            onclick="app.exploreNextWord()"
+                            class="px-4 py-3 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30"
+                        >
+                            🚀 New Treasure
+                        </button>
+                    </div>
+
+                    <!-- Discovery Progress -->
+                    <div class="glass-card p-4 mb-6">
+                        <div class="text-sm font-semibold text-yellow-300 mb-2 text-center">
+                            🏆 Treasures Found: ${discoveredWords.length}/${currentJourney.wordFamily.length}
+                        </div>
+                        <div class="w-full bg-white bg-opacity-20 rounded-full h-3">
+                            <div 
+                                class="bg-gradient-to-r from-yellow-400 to-orange-500 h-3 rounded-full transition-all duration-500"
+                                style="width: ${(discoveredWords.length / currentJourney.wordFamily.length) * 100}%"
+                            ></div>
+                        </div>
+                    </div>
+
+                    <!-- Back Button -->
+                    <div class="text-center">
+                        <button
+                            onclick="app.goToDashboard()"
+                            class="text-white hover:text-yellow-300 font-medium text-lg"
+                        >
+                            🏠 Back to Base
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     setupEventListeners() {
-        // Initialize Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
 
-        // Set up input listeners
         const wordBuilderInput = document.getElementById('wordBuilderInput');
         if (wordBuilderInput) {
             wordBuilderInput.addEventListener('input', (e) => {
@@ -619,7 +982,15 @@ class HabbitZVocabulary {
                     this.checkWordBuilderAnswer();
                 }
             });
+            
+            wordBuilderInput.focus();
         }
+    }
+
+    // Word Builder Methods
+    toggleWordBuilderHint() {
+        this.wordBuilderState.showHint = !this.wordBuilderState.showHint;
+        this.render();
     }
 
     checkWordBuilderAnswer() {
@@ -627,7 +998,7 @@ class HabbitZVocabulary {
         const target = this.wordBuilderState.currentWord.target.toLowerCase();
         
         if (answer === target) {
-            this.wordBuilderState.feedback = '🎉 AMAZING! You built the perfect word! ✨';
+            this.wordBuilderState.feedback = '🎉 PERFECT! You built the magical word! ✨';
             this.wordBuilderState.score += 50;
             this.wordBuilderState.wordsCompleted++;
             this.updateProgress(50, 1, this.wordBuilderState.currentWord.target);
@@ -636,13 +1007,120 @@ class HabbitZVocabulary {
                 this.nextWordBuilderWord();
             }, 2000);
         } else {
-            this.wordBuilderState.feedback = '🤔 Not quite right! Think about how the magical parts combine! Try again! 💪';
+            this.wordBuilderState.feedback = '🤔 Not quite right! Try again or use a hint! 💪';
         }
         this.render();
     }
 
     nextWordBuilderWord() {
         this.wordBuilderState = this.initWordBuilderState();
+        this.render();
+    }
+
+    // Context Detective Methods
+    toggleDetectiveHint() {
+        this.contextDetectiveState.showHint = !this.contextDetectiveState.showHint;
+        this.render();
+    }
+
+    selectDetectiveAnswer(index) {
+        this.contextDetectiveState.selectedAnswer = index;
+        this.contextDetectiveState.showExplanation = true;
+        
+        const isCorrect = index === this.contextDetectiveState.currentCase.correct;
+        if (isCorrect) {
+            this.contextDetectiveState.casesSolved++;
+            this.updateProgress(25, 1, this.contextDetectiveState.currentCase.word);
+        }
+        this.render();
+    }
+
+    nextDetectiveCase() {
+        this.contextDetectiveState = this.initContextDetectiveState();
+        this.render();
+    }
+
+    // Synonym Showdown Methods
+    toggleSynonymHint() {
+        this.synonymShowdownState.showHint = !this.synonymShowdownState.showHint;
+        this.render();
+    }
+
+    toggleSynonymSelection(word) {
+        const index = this.synonymShowdownState.selectedWords.indexOf(word);
+        if (index === -1) {
+            this.synonymShowdownState.selectedWords.push(word);
+        } else {
+            this.synonymShowdownState.selectedWords.splice(index, 1);
+        }
+        this.render();
+    }
+
+    submitSynonymBattle() {
+        const { selectedWords, currentBattle } = this.synonymShowdownState;
+        const { synonyms } = currentBattle;
+        
+        const correctSelections = selectedWords.filter(word => synonyms.includes(word));
+        const incorrectSelections = selectedWords.filter(word => !synonyms.includes(word));
+        
+        let points = 0;
+        let feedback = '';
+        
+        if (correctSelections.length === synonyms.length && incorrectSelections.length === 0) {
+            points = 75;
+            feedback = `🎉 VICTORY! Perfect synonym warrior! +${points} points`;
+            this.updateProgress(points, 1, currentBattle.targetWord);
+        } else if (correctSelections.length > incorrectSelections.length) {
+            points = correctSelections.length * 20;
+            feedback = `⚔️ Good battle! You found ${correctSelections.length}/${synonyms.length} synonyms. +${points} points`;
+            if (correctSelections.length === synonyms.length) {
+                this.updateProgress(points, 1, currentBattle.targetWord);
+            }
+        } else {
+            points = correctSelections.length * 10;
+            feedback = `💥 Keep fighting! You found ${correctSelections.length}/${synonyms.length} synonyms. +${points} points`;
+        }
+        
+        this.synonymShowdownState.score += points;
+        this.synonymShowdownState.feedback = feedback;
+        
+        setTimeout(() => {
+            this.nextSynonymBattle();
+        }, 3000);
+        
+        this.render();
+    }
+
+    nextSynonymBattle() {
+        this.synonymShowdownState = this.initSynonymShowdownState();
+        this.render();
+    }
+
+    // Etymology Explorer Methods
+    toggleEtymologyHint() {
+        this.etymologyExplorerState.showHint = !this.etymologyExplorerState.showHint;
+        this.render();
+    }
+
+    discoverFamilyWord(word) {
+        if (!this.etymologyExplorerState.discoveredWords.includes(word)) {
+            this.etymologyExplorerState.discoveredWords.push(word);
+            this.etymologyExplorerState.explorationPoints += 30;
+            this.updateProgress(30, 1, word);
+            
+            if (this.etymologyExplorerState.discoveredWords.length === this.etymologyExplorerState.currentJourney.wordFamily.length) {
+                setTimeout(() => {
+                    alert('🎉 Amazing! You discovered the entire word family! +100 bonus treasure points!');
+                    this.etymologyExplorerState.explorationPoints += 100;
+                    this.updateProgress(100, 0);
+                }, 500);
+            }
+        }
+        this.render();
+    }
+
+    exploreNextWord() {
+        this.etymologyExplorerState = this.initEtymologyExplorerState();
         this.render();
     }
 
@@ -660,26 +1138,16 @@ class HabbitZVocabulary {
             this.studentProgress.accuracy = Math.min(100, this.studentProgress.accuracy + 1);
         }
         
+        // Update level progress tracking
+        this.updateLevelProgress();
+        
         // Check for level progression
         this.checkLevelUnlocks();
         
         // Update streak
         if (wordsLearned > 0) {
-            this.studentProgress.streak = Math.max(1, this.studentProgress.streak + 1);
+            this.studentProgress.streak = Math.max(1, this.studentProgress.streak);
         }
-    }
-
-    // Placeholder for other activity renderers - will implement based on the same pattern
-    renderContextDetective() {
-        return `<div class="p-8 text-center text-white">🔍 Context Detective Coming Soon!</div>`;
-    }
-
-    renderSynonymShowdown() {
-        return `<div class="p-8 text-center text-white">⚔️ Word Warriors Coming Soon!</div>`;
-    }
-
-    renderEtymologyExplorer() {
-        return `<div class="p-8 text-center text-white">🗺️ Word Treasure Hunt Coming Soon!</div>`;
     }
 }
 
