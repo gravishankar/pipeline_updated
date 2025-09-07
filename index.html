@@ -6,24 +6,107 @@
     <title>HabbitZ Vocabulary - Build Your Word Power</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .fun-font {
+            font-family: 'Fredoka One', cursive;
+        }
+        
         .progress-bar {
             transition: width 0.5s ease-in-out;
         }
-        .adventure-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        
+        .adventure-card {
+            transition: all 0.3s ease;
+            background: linear-gradient(145deg, #ffffff, #f0f0f0);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
         }
+        
+        .adventure-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        
         .word-part {
             transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
+        
         .word-part:hover {
-            transform: scale(1.05);
+            transform: scale(1.1) rotate(2deg);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .level-badge {
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            animation: pulse 2s infinite;
+        }
+        
+        .xp-counter {
+            animation: bounce 1s ease-in-out;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 53%, 80%, 100% { transform: translateY(0); }
+            40%, 43% { transform: translateY(-8px); }
+            70% { transform: translateY(-4px); }
+            90% { transform: translateY(-2px); }
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(4px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .button-fun {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .button-fun:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(45deg, #ff5252, #26c6da);
+        }
+        
+        .level-selector {
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .emoji-rain {
+            animation: rain 3s linear infinite;
+        }
+        
+        @keyframes rain {
+            0% { transform: translateY(-100vh) rotate(0deg); }
+            100% { transform: translateY(100vh) rotate(360deg); }
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="min-h-screen">
     <div id="app"></div>
+    <script src="words-database.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
