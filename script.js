@@ -1,6 +1,7 @@
 class HabbitZVocabulary {
     constructor() {
         this.currentView = 'dashboard';
+        this.showUserManual = false;
         this.studentProgress = {
             level: 1,
             experience: 0,
@@ -245,15 +246,68 @@ class HabbitZVocabulary {
     }
 
     generateContextSentence(word) {
-        const templates = [
-            `The student's work was very _____ and impressed everyone.`,
-            `Scientists need to _____ the data before drawing conclusions.`,
-            `The _____ results supported their hypothesis.`,
-            `Her explanation was _____ and easy to understand.`,
-            `The teacher asked us to _____ the main points.`,
-            `This _____ information will help us solve the problem.`
-        ];
+        // Create context sentences that actually use the word properly
+        const wordType = this.getWordType(word.word);
+        
+        const sentenceTemplates = {
+            verb: [
+                `Students need to _____ the information before writing their essays.`,
+                `The teacher asked us to _____ the main ideas from the text.`,
+                `Scientists _____ data to understand patterns and trends.`,
+                `We must _____ the problem carefully before finding a solution.`,
+                `The detective will _____ all the evidence from the crime scene.`
+            ],
+            adjective: [
+                `The _____ results showed clear improvement in student performance.`,
+                `Her _____ explanation helped everyone understand the concept.`,
+                `The scientist made a _____ discovery that changed everything.`,
+                `This _____ information is important for our research project.`,
+                `The student's _____ work impressed the entire class.`
+            ],
+            noun: [
+                `The _____ of the experiment surprised all the researchers.`,
+                `Students studied the _____ to better understand the topic.`,
+                `The teacher explained the _____ using simple examples.`,
+                `This _____ is essential for understanding the subject.`,
+                `The _____ shows how different concepts are connected.`
+            ]
+        };
+        
+        const templates = sentenceTemplates[wordType] || sentenceTemplates.noun;
         return templates[Math.floor(Math.random() * templates.length)];
+    }
+
+    getWordType(word) {
+        // Simple word type detection based on common patterns
+        const verbEndings = ['ize', 'ise', 'ate', 'ify', 'en'];
+        const adjectiveEndings = ['ive', 'ous', 'ful', 'less', 'able', 'ible', 'ant', 'ent'];
+        const nounEndings = ['tion', 'sion', 'ment', 'ness', 'ity', 'ogy', 'ism', 'ist'];
+        
+        const lowerWord = word.toLowerCase();
+        
+        // Check for verb patterns
+        if (verbEndings.some(ending => lowerWord.endsWith(ending))) {
+            return 'verb';
+        }
+        
+        // Check for adjective patterns  
+        if (adjectiveEndings.some(ending => lowerWord.endsWith(ending))) {
+            return 'adjective';
+        }
+        
+        // Check for noun patterns
+        if (nounEndings.some(ending => lowerWord.endsWith(ending))) {
+            return 'noun';
+        }
+        
+        // Default classification based on common academic words
+        const commonVerbs = ['analyze', 'synthesize', 'evaluate', 'compare', 'contrast', 'examine', 'investigate', 'demonstrate', 'illustrate', 'identify', 'predict', 'conclude'];
+        const commonAdjectives = ['significant', 'comprehensive', 'legitimate', 'substantial', 'accurate', 'precise', 'relevant', 'appropriate', 'effective', 'efficient'];
+        
+        if (commonVerbs.includes(lowerWord)) return 'verb';
+        if (commonAdjectives.includes(lowerWord)) return 'adjective';
+        
+        return 'noun'; // Default to noun
     }
 
     generateDecoys(targetWord, allWords, count) {
@@ -296,6 +350,12 @@ class HabbitZVocabulary {
         }
 
         app.innerHTML = content;
+        
+        // Add user manual modal if it should be shown
+        if (this.showUserManual) {
+            app.innerHTML += this.renderUserManual();
+        }
+        
         this.setupEventListeners();
     }
 
@@ -323,6 +383,9 @@ class HabbitZVocabulary {
                             🎯 HabbitZ Vocabulary Quest! 🚀
                         </h1>
                         <p class="text-white text-xl opacity-90">Level up your word powers!</p>
+                        <button onclick="app.toggleUserManual()" class="mt-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-lg transition-all duration-300 flex items-center mx-auto">
+                            📖 User Manual
+                        </button>
                     </div>
 
                     <!-- Level Selection and Progress -->
@@ -960,6 +1023,234 @@ class HabbitZVocabulary {
                         >
                             🏠 Back to Base
                         </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    toggleUserManual() {
+        this.showUserManual = !this.showUserManual;
+        this.render();
+    }
+
+    renderUserManual() {
+        return `
+            <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="this.remove()">
+                <div class="bg-white rounded-xl shadow-2xl max-w-4xl max-h-[90vh] overflow-y-auto relative" onclick="event.stopPropagation()">
+                    <div class="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+                        <h2 class="text-3xl font-bold text-gray-800 flex items-center">
+                            📖 HabbitZ Vocabulary User Manual
+                        </h2>
+                        <button onclick="app.toggleUserManual()" class="text-gray-500 hover:text-gray-700 text-2xl">
+                            ✕
+                        </button>
+                    </div>
+                    
+                    <div class="p-6 space-y-8">
+                        <!-- Welcome Section -->
+                        <section>
+                            <h3 class="text-2xl font-bold text-blue-600 mb-4 flex items-center">
+                                🎯 Welcome to HabbitZ Vocabulary Quest!
+                            </h3>
+                            <p class="text-gray-700 text-lg leading-relaxed">
+                                HabbitZ Vocabulary is an interactive learning game designed to help middle school students 
+                                build their vocabulary through fun, engaging activities. Master words, level up, and become 
+                                a vocabulary champion!
+                            </p>
+                        </section>
+
+                        <!-- Getting Started -->
+                        <section>
+                            <h3 class="text-2xl font-bold text-green-600 mb-4 flex items-center">
+                                🚀 Getting Started
+                            </h3>
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <ol class="list-decimal list-inside space-y-3 text-gray-700">
+                                    <li><strong>Choose Your Level:</strong> Start at Foundation Level or select any unlocked level for practice</li>
+                                    <li><strong>Pick an Adventure:</strong> Choose from four exciting vocabulary activities</li>
+                                    <li><strong>Learn & Play:</strong> Complete activities to earn XP and master words</li>
+                                    <li><strong>Level Up:</strong> Master 80% of words in your current level to unlock the next one!</li>
+                                </ol>
+                            </div>
+                        </section>
+
+                        <!-- Levels System -->
+                        <section>
+                            <h3 class="text-2xl font-bold text-purple-600 mb-4 flex items-center">
+                                📊 Level System
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-green-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-green-700">🌱 Level 1: Foundation</h4>
+                                    <p class="text-gray-600">Basic academic vocabulary and reading comprehension words</p>
+                                </div>
+                                <div class="bg-blue-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-blue-700">🌿 Level 2: Developing</h4>
+                                    <p class="text-gray-600">More complex vocabulary for critical thinking</p>
+                                </div>
+                                <div class="bg-orange-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-orange-700">🌳 Level 3: Proficient</h4>
+                                    <p class="text-gray-600">Advanced academic and analytical vocabulary</p>
+                                </div>
+                                <div class="bg-red-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-red-700">🦅 Level 4: Advanced</h4>
+                                    <p class="text-gray-600">Sophisticated vocabulary for complex texts</p>
+                                </div>
+                                <div class="bg-purple-50 p-4 rounded-lg md:col-span-2">
+                                    <h4 class="font-bold text-purple-700">👑 Level 5: Expert</h4>
+                                    <p class="text-gray-600">College-level vocabulary mastery</p>
+                                </div>
+                            </div>
+                            <div class="mt-4 bg-yellow-50 p-4 rounded-lg">
+                                <p class="text-yellow-800"><strong>💡 Tip:</strong> Master 80% of words (16 out of 20) in your current level to unlock the next level!</p>
+                            </div>
+                        </section>
+
+                        <!-- Activities Guide -->
+                        <section>
+                            <h3 class="text-2xl font-bold text-red-600 mb-4 flex items-center">
+                                🎮 Vocabulary Adventures
+                            </h3>
+                            
+                            <!-- Word Builder -->
+                            <div class="mb-6 border border-gray-200 rounded-lg p-4">
+                                <h4 class="text-xl font-bold text-blue-600 mb-3 flex items-center">
+                                    🧩 Word Builder Quest
+                                </h4>
+                                <p class="text-gray-700 mb-3">Build words from scrambled letters using hints and definitions.</p>
+                                <div class="bg-blue-50 p-3 rounded">
+                                    <strong>How to Play:</strong>
+                                    <ul class="list-disc list-inside mt-2 text-gray-600">
+                                        <li>Read the definition and example sentence</li>
+                                        <li>Use the scrambled letters to build the target word</li>
+                                        <li>Click the hint button if you need help</li>
+                                        <li>Type your answer and submit to check</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Context Detective -->
+                            <div class="mb-6 border border-gray-200 rounded-lg p-4">
+                                <h4 class="text-xl font-bold text-yellow-600 mb-3 flex items-center">
+                                    🔍 Detective Academy
+                                </h4>
+                                <p class="text-gray-700 mb-3">Use context clues to solve word mysteries!</p>
+                                <div class="bg-yellow-50 p-3 rounded">
+                                    <strong>How to Play:</strong>
+                                    <ul class="list-disc list-inside mt-2 text-gray-600">
+                                        <li>Read the sentence with the missing word</li>
+                                        <li>Use context clues to understand the meaning</li>
+                                        <li>Choose the correct word from the options</li>
+                                        <li>Learn from the explanation after each answer</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Synonym Showdown -->
+                            <div class="mb-6 border border-gray-200 rounded-lg p-4">
+                                <h4 class="text-xl font-bold text-red-600 mb-3 flex items-center">
+                                    ⚔️ Word Warriors
+                                </h4>
+                                <p class="text-gray-700 mb-3">Battle with words by matching synonyms and relationships!</p>
+                                <div class="bg-red-50 p-3 rounded">
+                                    <strong>How to Play:</strong>
+                                    <ul class="list-disc list-inside mt-2 text-gray-600">
+                                        <li>Look at the word and its definition</li>
+                                        <li>Find the word that means the same thing (synonym)</li>
+                                        <li>Be careful of tricky similar words!</li>
+                                        <li>Build your warrior points with correct answers</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Etymology Explorer -->
+                            <div class="mb-6 border border-gray-200 rounded-lg p-4">
+                                <h4 class="text-xl font-bold text-green-600 mb-3 flex items-center">
+                                    🗺️ Word Treasure Hunt
+                                </h4>
+                                <p class="text-gray-700 mb-3">Discover word families and their amazing origins!</p>
+                                <div class="bg-green-50 p-3 rounded">
+                                    <strong>How to Play:</strong>
+                                    <ul class="list-disc list-inside mt-2 text-gray-600">
+                                        <li>Learn about word roots, prefixes, and suffixes</li>
+                                        <li>Discover how words are related to each other</li>
+                                        <li>Find patterns in word families</li>
+                                        <li>Unlock the treasure of word knowledge!</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Progress & Rewards -->
+                        <section>
+                            <h3 class="text-2xl font-bold text-indigo-600 mb-4 flex items-center">
+                                🏆 Progress & Rewards
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-indigo-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-indigo-700 mb-2">🎯 Experience Points (XP)</h4>
+                                    <p class="text-gray-600">Earn XP for every correct answer and completed activity</p>
+                                </div>
+                                <div class="bg-green-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-green-700 mb-2">🔥 Daily Streak</h4>
+                                    <p class="text-gray-600">Keep your learning streak alive by practicing daily</p>
+                                </div>
+                                <div class="bg-blue-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-blue-700 mb-2">📈 Accuracy Tracking</h4>
+                                    <p class="text-gray-600">Monitor your performance and see improvement over time</p>
+                                </div>
+                                <div class="bg-purple-50 p-4 rounded-lg">
+                                    <h4 class="font-bold text-purple-700 mb-2">🌟 Word Mastery</h4>
+                                    <p class="text-gray-600">Master words to build your vocabulary collection</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Tips for Success -->
+                        <section>
+                            <h3 class="text-2xl font-bold text-orange-600 mb-4 flex items-center">
+                                💡 Tips for Success
+                            </h3>
+                            <div class="bg-orange-50 p-4 rounded-lg">
+                                <ul class="list-disc list-inside space-y-2 text-gray-700">
+                                    <li><strong>Practice Daily:</strong> Even 10 minutes a day helps build vocabulary habits</li>
+                                    <li><strong>Use Context Clues:</strong> Look for hints in sentences to understand word meanings</li>
+                                    <li><strong>Learn Word Families:</strong> Understanding roots helps you figure out new words</li>
+                                    <li><strong>Don't Rush:</strong> Take time to read definitions and examples carefully</li>
+                                    <li><strong>Review Mistakes:</strong> Learn from wrong answers to improve next time</li>
+                                    <li><strong>Have Fun:</strong> The more you enjoy learning, the better you'll remember!</li>
+                                </ul>
+                            </div>
+                        </section>
+
+                        <!-- Word of the Day -->
+                        <section>
+                            <h3 class="text-2xl font-bold text-teal-600 mb-4 flex items-center">
+                                📅 Word of the Day
+                            </h3>
+                            <div class="bg-teal-50 p-4 rounded-lg">
+                                <p class="text-gray-700">
+                                    Check the dashboard daily for a featured vocabulary word with definition and example. 
+                                    The Word of the Day changes automatically and helps you discover new words from your selected practice level!
+                                </p>
+                            </div>
+                        </section>
+
+                        <!-- Troubleshooting -->
+                        <section>
+                            <h3 class="text-2xl font-bold text-gray-600 mb-4 flex items-center">
+                                🔧 Need Help?
+                            </h3>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <ul class="list-disc list-inside space-y-2 text-gray-700">
+                                    <li><strong>Can't advance levels?</strong> Make sure you've mastered 80% of words in your current level</li>
+                                    <li><strong>Activities not loading?</strong> Try refreshing the page or check your internet connection</li>
+                                    <li><strong>Want to practice a specific level?</strong> Use the level selector in the dashboard</li>
+                                    <li><strong>Forgot a word meaning?</strong> Use the hint buttons or read the explanations carefully</li>
+                                </ul>
+                            </div>
+                        </section>
                     </div>
                 </div>
             </div>
